@@ -2,7 +2,7 @@ package examples
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/svc0a/gin2/middleware"
+	"github.com/svc0a/gin2/middleware/idempotency"
 	"net/http"
 	"testing"
 	"time"
@@ -11,7 +11,7 @@ import (
 func TestName(t *testing.T) {
 	r := gin.Default()
 	// 使用幂等性中间件
-	r.Use(middleware.IdempotencyMiddleware(middleware.NewMemoryStore(), "idempotency-key"))
+	r.Use(idempotency.IdempotencyMiddleware(idempotency.NewMemoryStore(), "idempotency-key"))
 
 	// 测试路由
 	r.Any("/process", func(c *gin.Context) {

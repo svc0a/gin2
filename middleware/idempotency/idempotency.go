@@ -1,14 +1,20 @@
-package middleware
+package idempotency
 
 import (
 	"bytes"
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 	"net/http"
 )
 
+type Response struct {
+	header map[string]string
+	body   string
+}
+
 type Store interface {
-	Store(key string, value []byte)
-	Load(key string) ([]byte, error)
+	Store(key string, value *Response)
+	Load(key string) (*Response, error)
 }
 
 // bodyLogWriter 用于捕获响应主体
@@ -33,14 +39,18 @@ func IdempotencyMiddleware(store Store, idempotencyKey string) gin.HandlerFunc {
 		}
 		result, err := store.Load(k)
 		if err == nil {
-			// 如果已经处理过，返回存储的响应
-			c.Status(http.StatusOK)
-			c.Data(http.StatusOK, "application/json", result)
+			for k1, v1 := range result.header {
+				c.Writer.Header().Set(k1, v1)
+			}
+			_, err := c.Writer.Write([]byte(result.body))
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
 			c.Abort()
 			return
 		}
 		blw := &bodyLogWriter{body: bytes.NewBufferString(""), ResponseWriter: c.Writer}
-		c.Writer = blw
 		// 否则，继续处理请求
 		c.Next()
 		// 将请求的响应结果存储起来，作为幂等性响应
@@ -48,6 +58,14 @@ func IdempotencyMiddleware(store Store, idempotencyKey string) gin.HandlerFunc {
 			return
 		}
 		responseBody := blw.body.Bytes()
-		store.Store(k, responseBody)
+		header := map[string]string{}
+		for k1, v1 := range c.Writer.Header() {
+			header[k1] = v1[0]
+		}
+		response := &Response{
+			header: header,
+			body:   string(responseBody),
+		}
+		store.Store(k, response)
 	}
 }
