@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
+	"github.com/svc0a/gin2/store"
 	"net/http"
 )
 
-type Response struct {
+type response struct {
 	header map[string]string
 	body   string
 }
@@ -23,7 +24,7 @@ func (w bodyLogWriter) Write(b []byte) (int, error) {
 	return w.ResponseWriter.Write(b)
 }
 
-func Middleware(store Store, idempotencyKey string) gin.HandlerFunc {
+func Middleware(store store.Store[response], idempotencyKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 从 Header 中获取 Idempotency-Key
 		k := c.GetHeader(idempotencyKey)
@@ -58,10 +59,10 @@ func Middleware(store Store, idempotencyKey string) gin.HandlerFunc {
 		for k1, v1 := range c.Writer.Header() {
 			header[k1] = v1[0]
 		}
-		response := &Response{
+		resp := &response{
 			header: header,
 			body:   string(responseBody),
 		}
-		store.Store(k, response)
+		store.Store(k, resp)
 	}
 }
