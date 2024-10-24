@@ -1,35 +1,37 @@
-package idempotency
+package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
 	"github.com/go-redis/redis/v8"
 )
 
-type RedisStore struct {
+type RedisStore[T any] struct {
 	client *redis.Client
 	ttl    time.Duration // 设置键的过期时间
 }
 
 // NewRedisStore 构造函数，初始化 RedisStore
-func NewRedisStore(addr string, password string, db int, ttl time.Duration) *RedisStore {
+func NewRedisStore[T any](addr string, password string, db int, ttl time.Duration) *RedisStore[T] {
 	client := redis.NewClient(&redis.Options{
 		Addr:     addr,
 		Password: password, // 没有密码时使用 ""
 		DB:       db,       // Redis 数据库编号
 	})
 
-	return &RedisStore{
+	return &RedisStore[T]{
 		client: client,
 		ttl:    ttl,
 	}
 }
 
 // Store 方法实现，向 Redis 中存储键值对，并设置过期时间
-func (r *RedisStore) Store(key string, value []byte) {
-	data := string(value)
+func (r *RedisStore[T]) Store(key string, value T) {
+	marshal, _ := json.Marshal(value)
+	data := string(marshal)
 	// 将值序列化为字符串或字节数据
 	err := r.client.Set(context.Background(), key, data, r.ttl).Err()
 	if err != nil {
@@ -38,7 +40,7 @@ func (r *RedisStore) Store(key string, value []byte) {
 }
 
 // Load 方法实现，从 Redis 中加载键值对
-func (r *RedisStore) Load(key string) ([]byte, error) {
+func (r *RedisStore[T]) Load(key string) (*T, error) {
 	value, err := r.client.Get(context.Background(), key).Result()
 	if errors.Is(err, redis.Nil) {
 		// 如果键不存在，返回自定义错误
@@ -47,5 +49,10 @@ func (r *RedisStore) Load(key string) ([]byte, error) {
 		// 其他 Redis 错误
 		return nil, err
 	}
-	return []byte(value), nil
+	var t T
+	err = json.Unmarshal([]byte(value), &t)
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
 }

@@ -1,4 +1,4 @@
-package idempotency
+package middleware
 
 import (
 	"bytes"
@@ -12,11 +12,6 @@ type Response struct {
 	body   string
 }
 
-type Store interface {
-	Store(key string, value *Response)
-	Load(key string) (*Response, error)
-}
-
 // bodyLogWriter 用于捕获响应主体
 type bodyLogWriter struct {
 	gin.ResponseWriter
@@ -28,7 +23,7 @@ func (w bodyLogWriter) Write(b []byte) (int, error) {
 	return w.ResponseWriter.Write(b)
 }
 
-func IdempotencyMiddleware(store Store, idempotencyKey string) gin.HandlerFunc {
+func Middleware(store Store, idempotencyKey string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 从 Header 中获取 Idempotency-Key
 		k := c.GetHeader(idempotencyKey)
