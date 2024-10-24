@@ -51,6 +51,7 @@ func IdempotencyMiddleware(store Store, idempotencyKey string) gin.HandlerFunc {
 			return
 		}
 		blw := &bodyLogWriter{body: bytes.NewBufferString(""), ResponseWriter: c.Writer}
+		c.Writer = blw
 		// 否则，继续处理请求
 		c.Next()
 		// 将请求的响应结果存储起来，作为幂等性响应
